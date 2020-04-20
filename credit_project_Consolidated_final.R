@@ -121,7 +121,7 @@ actual <- test_df_new$Class #Ground truth of test set
 
 #-----------------------------------------------------------------------------------------------------
 #Logistic Regression - Validation set approach: 
-log_mod <- glm(Class ~ . -V26-V18-V3-V2-V17-V25-V11-V24-V12-V19-V15, family = "binomial", data = train_val_df[,-c(31)])
+log_mod <- glm(Class ~ . -V26-V18-V3-V2-V17-V25-V11-V24-V12-V19-V15, family = "binomial", data = train_val_df)
 scoreLogReg <- predict(log_mod, test_df_new, type='response')
 score_lr<- ifelse(scoreLogReg > 0.9, 1, 0)
 
@@ -150,7 +150,7 @@ ROC_func(df_knn, 1, 2, add_on = F) #KNN
 
 #-------------------------------------------------------------------------------------------------------
 #Decision Tree with depth = 3:
-dTree_mod <- rpart(train_val_df[, 30]~ . , train_val_df[,-c(30,31)], method = 'class', maxdepth = 3)
+dTree_mod <- rpart(train_val_df[, 30]~ . , train_val_df[,-30], method = 'class', maxdepth = 3)
 predict_dTree <- predict(dTree_mod, test_df_new, type = 'class')
 result_dTree <- cbind.data.frame(as.data.frame(predict_dTree), as.data.frame(test_df_new[,30]))
 rpart.plot(dTree_mod)
@@ -263,23 +263,20 @@ AIC(glm.fits12)
 #By conducting backward selection procedure based on p-value of each variable, we found the model without V26,V18,V3,V2,V17,V25,V11,V24,V12,V19,V15 delivers the best fit.
 
 #-----------------------------------------------------------------------------------------------------------
+##Selecting best K for KNN using K-fold cross validation
 
 k=5 #lnumber of fold in cross validation
-K=5 #Number of models 
+K=3 #Number of models 
 
-
-
-set.seed(1093)
+set.seed(1000)
 train_val_df$id <- sample(1:k, nrow(train_val_df), replace = TRUE)
 list <- 1:k
 best_K_value <- 0
 best_accurary <- 0
 
-
-
 for(m in 1:K) #loop through multiple K value of different knn models
 {
-  K_value <- strtoi(switch(m,"2","3", "4","5","10"))
+  K_value <- strtoi(switch(m,"3","5","10"))
   prediction <- data.frame()
   testsetCopy <- data.frame()
   result <- data.frame()
@@ -291,25 +288,43 @@ for(m in 1:K) #loop through multiple K value of different knn models
     trainingset <- subset(train_val_df, id %in% list[-i])
     validationset <- subset(train_val_df, id %in% c(i))
     
-    mymodel <- knn(train = trainingset[,-30], test = validationset[,-30], cl = trainingset$Class, k = K_value, use.all=TRUE) #run a knn
-    prediction <- rbind(prediction, as.data.frame(mymodel)) # append this iteration's predictions to the end of the prediction data frame
+    mymodel <- knn(train = trainingset[,-(30,31)], test = validationset[,-(30,31)], cl = trainingset$Class, k = K_value, use.all = TRUE, , prob=TRUE) #run a knn
+    prediction <- rbind(prediction, data.frame(predicted=as.data.frame(mymodel), score=attr(mymodel, "prob"))) # append this iteration's predictions to the end of the prediction data frame
     testsetCopy <- rbind(testsetCopy, as.data.frame(validationset[,30])) # append this iteration's test set to the test set copy data frame
     
     progress.bar$step()
   }
-  result <- cbind(prediction, testsetCopy[, 1])
+  result <- cbind.data.frame(prediction[, 1 ], testsetCopy[, 1])
   names(result) <- c("predicted", "Class")
   
-  confusM <- confusionMatrix(factor(result[,1]), factor(result[,2]), positive = "1") #confusion matrix
-  Accuracy <- confusM$overall["Accuracy"]
+  #confusion matrix of KNN
+  CM_KNN_CV <- table(result[,2],result[,1]) 
+  Accuracy <- sum(diag(CM_KNN_CV))/sum(CM_KNN_CV)
+  cat("\n The accuracy of KNN when K=", K_value, " is ", format(round(Accuracy*100, 2), nsmall = 2),"%")
   
   if (Accuracy > best_accurary) {
     best_accurary <- Accuracy
     best_K_value <- K_value
   } 
+  
+  #plot ROC Curve
+  roc_result <- cbind.data.frame(testsetCopy[, 1],prediction[, 2])
+  if (m == 1) #plot ROC
+  {
+    ROC_func(roc_result, 1, 2, add_on = F)
+  }else if(m == 2){
+    ROC_func(roc_result, 1, 2, add_on = T, color = 'red')
+  }else{
+    ROC_func(roc_result, 1, 2, add_on = T, color = 'green')
+  }
 }
-cat("The best K value is ", best_K_value)
+legend("bottomright",legend=c("KNN Cross Validation ROC", "K=3", "K=5","K=10"),
+       lty=c(1,1,1,1), cex = 0.5,
+       lwd=c(.125, 0.125, 0.125, 0.125),col=c("black", "red", "green"))
+
+cat("The best K value is ", best_K_value, '\n')
 cat("The accuracy is ", best_accurary)
+
 
 #---------------------------------------------------------------------------------------------------------
 
@@ -337,7 +352,7 @@ for(m in 1:H) #loop through multiple K value of different depth
     trainingset <- subset(train_val_df, id %in% list[-i])
     validationset <- subset(train_val_df, id %in% c(i))
     
-    decisionTree_model <- rpart(trainingset[, 30]~ . , trainingset[,-30], method = 'class', maxdepth = H_value) #run descrision tree model
+    decisionTree_model <- rpart(trainingset[, 30]~ . , trainingset[,-c(30,31)], method = 'class', maxdepth = H_value) #run descrision tree model
     predicted_val <- predict(decisionTree_model, validationset, type = 'class')
     probability <- predict(decisionTree_model, validationset, type = 'prob')
     #rpart.plot(decisionTree_model)
@@ -375,9 +390,10 @@ legend("bottomright",legend=c("Decision Tree Cross Validation ROC", "H=1", "H=3"
        lty=c(1,1,1,1), cex = 0.5,
        lwd=c(.125, 0.125, 0.125, 0.125),col=c("black", "blue", "red"))
 
-#The best depth value is  3 with accuracy 97%
+#The best depth value is  3 
 cat("The best depth value is ", best_H_value) 
 cat("/n The accuracy is ", best_accurary)
+
 
 #---------------------------------------------------------------------------------------------------------
 ##Defining hyperparameters for Random Forest using train_val dataset:
