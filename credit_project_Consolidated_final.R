@@ -194,18 +194,19 @@ legend("bottomright",legend=c("Logistic Regression", "KNN", "Decision Tree","Ran
        lwd=c(.125, 0.125, 0.125, 0.125),col=c("black", "blue", "red", "green"))
 #---------------------------------------------------------------------------------------------
 
+[12:43 PM] Pooja Ramesh
 #Performance Comparision
 Comp <- c("LogReg", "kNN", "DT", "RF")
 TP <- c(272653,272339,271940,272686)
 FP <- c(415,729,1128,382)
 FN <- c(7,4,5,4)
 TN <- c(37,40,39,40)
-sensitivity = TP / (TP+FN)
-specificity = TN / (TN+FP)
-precision = TP / (TP+FP)
-Accuracy <- (TP+TN) / (TP+TN+FP+FN)
-F1 = 2* (precision * sensitivity) / (precision + sensitivity)
-FPR = 1 - ( TN / (TN+FP))
+sensitivity = format(round(TP / (TP+FN)), nsmall = 2)
+specificity = format(round(TN / (TN+FP)), nsmall = 2)
+precision = format(round(TP / (TP+FP)), nsmall = 2)
+Accuracy <- format(round((TP+TN) / (TP+TN+FP+FN)), nsmall = 2)
+F1 = 2* format(round((precision * sensitivity) / (precision + sensitivity)), nsmall = 2)
+FPR = 1 - format(round(( TN / (TN+FP))), nsmall = 2)
 Performance_comp_table <- data.frame(Comp,TP,FP,FN,TN,sensitivity,specificity,precision,Accuracy, F1,FPR)
 Performance_comp_table
 
