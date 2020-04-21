@@ -1,12 +1,10 @@
 library(tidyr)
 library(dplyr)
 library(tidyverse)
-library(corrplot)
 library(ggplot2)
 library(caret)
 library(car)
 library(data.table)
-library(ggplot2)
 library(plyr)
 library(pROC)
 library(glmnet)
@@ -15,7 +13,6 @@ library(xgboost)
 library(randomForest)
 library(DMwR)
 library(gridExtra)
-library(ROSE)
 library(class)
 library(rpart)
 library(rpart.plot)
@@ -136,8 +133,8 @@ df_lr <- data.frame(true.class = actual, LR =scoreLogReg)
 ROC_func(df_lr, 1, 2, add_on = F) #Log Reg
 
 #-----------------------------------------------------------------------------------------------------
-#KNN using K = 3:
-knn_mod  <- knn(train = train_val_df[,-c(30)], test = test_df_new[,-30], cl = train_val_df$Class, k = 3, prob=TRUE, use.all=TRUE) #Predicted class of KNN
+#KNN using K = 5:
+knn_mod  <- knn(train = train_val_df[,-c(30)], test = test_df_new[,-30], cl = train_val_df$Class, k = 5, prob=TRUE, use.all=TRUE) #Predicted class of KNN
 CM_KNN <- table(actual,knn_mod) #confusion matrix of KNN
 Accuracy_KNN <- sum(diag(CM_KNN))/sum(CM_KNN)
 cat("The model accuracy of KNN is ", format(round(Accuracy_KNN*100, 2), nsmall = 2),"%")
@@ -147,10 +144,9 @@ KNN_prob <- attr(knn_mod, "prob")
 df_knn <- data.frame(true.class = actual, KNN=KNN_prob)
 ROC_func(df_knn, 1, 2, add_on = F) #KNN
 
-
 #-------------------------------------------------------------------------------------------------------
 #Decision Tree with depth = 3:
-dTree_mod <- rpart(train_val_df[, 30]~ . , train_val_df[,-30], method = 'class', maxdepth = 3)
+dTree_mod <- rpart(train_val_df[,30]~ . , train_val_df[,-30], method = 'class', maxdepth = 3)
 predict_dTree <- predict(dTree_mod, test_df_new, type = 'class')
 result_dTree <- cbind.data.frame(as.data.frame(predict_dTree), as.data.frame(test_df_new[,30]))
 rpart.plot(dTree_mod)
@@ -168,10 +164,10 @@ ROC_func(df_dtree, 1, 2, add_on = F) #Decision Tree
 #------------------------------------------------------------------------------------------
 
 #Random forest with selected hyperparameters:
-model_rf <- train(Class~.,train_val_df,method = "rf",importance = TRUE, nodesize = 14,
-                  ntree = 900,maxnodes = 90)
- prediction_rf <-predict(model_rf, test_df_new)
-CM_RF <- table(actual,prediction_rf) #Confusion matrix of Random Forest
+model_rf <- train(Class~.,train_val_df,method = "rf",importance = TRUE, nodesize = 1,
+                  ntree = 800,maxnodes = 80)
+prediction_rf <-predict(model_rf, test_df_new)
+(CM_RF <- table(actual,prediction_rf)) #Confusion matrix of Random Forest
 Accuracy_RF <- sum(diag(CM_RF))/sum(CM_RF)
 cat("The model accuracy of Random Forest is ", format(round(Accuracy_RF*100, 2), nsmall = 2), "%")  
 
@@ -183,31 +179,31 @@ ROC_func(df_rdftree, 1, 2, add_on = F) #Random Forest
 #-------------------------------------------------------------------------------------------
 
 # Model comparison using ROC: 
-df_all <- data.frame(df$test_df_new.Class, LR = scoreLogReg, KNN =KNN_prob, DTree =predict_dTree_prob[,2], RF = predict_rf_prob[,2])
-ROC_func(df_all, 1, 2, add_on = F) #LR
-ROC_func(df_all, 1, 3, add_on = T, color = "blue") #KNN
-ROC_func(df_all, 1, 4, add_on = T, color = "red") #DTree
-ROC_func(df_all, 1, 5, add_on = T, color = "green") #RF
+df_all <- data.frame(Ground_Truth=actual, LR = scoreLogReg, KNN =KNN_prob, DTree =predict_dTree_prob[,2], RF = predict_rf_prob[,2])
+auc_lr <- ROC_func(df_all, 1, 2, add_on = F) #LR
+auc_knn <- ROC_func(df_all, 1, 3, add_on = T, color = "blue") #KNN
+auc_dtree <- ROC_func(df_all, 1, 4, add_on = T, color = "red") #DTree
+auc_rf <- ROC_func(df_all, 1, 5, add_on = T, color = "green") #RF
 
-legend("bottomright",legend=c("Logistic Regression", "KNN", "Decision Tree","Random forest"),
-       lty=c(1,1,1,1), cex = 0.5,
-       lwd=c(.125, 0.125, 0.125, 0.125),col=c("black", "blue", "red", "green"))
+legend("bottomright",legend=c("Logistic Regression, 0.996", "KNN, 0.892", "Decision Tree, 0.999","Random forest, 0.991"),
+       title = "Model, AUC",lty=c(1,1,1,1), cex = 0.5, 
+       lwd=c(.125, 0.125, 0.125, 0.125),col=c("black", "blue", "red", "yellow"))
 #---------------------------------------------------------------------------------------------
 
-[12:43 PM] Pooja Ramesh
 #Performance Comparision
 Comp <- c("LogReg", "kNN", "DT", "RF")
 TP <- c(272653,272339,271940,272686)
 FP <- c(415,729,1128,382)
 FN <- c(7,4,5,4)
 TN <- c(37,40,39,40)
-sensitivity = format(round(TP / (TP+FN)), nsmall = 2)
-specificity = format(round(TN / (TN+FP)), nsmall = 2)
-precision = format(round(TP / (TP+FP)), nsmall = 2)
-Accuracy <- format(round((TP+TN) / (TP+TN+FP+FN)), nsmall = 2)
-F1 = 2* format(round((precision * sensitivity) / (precision + sensitivity)), nsmall = 2)
-FPR = 1 - format(round(( TN / (TN+FP))), nsmall = 2)
+sensitivity = TP / (TP+FN)
+specificity = TN / (TN+FP)
+precision = TP / (TP+FP)
+Accuracy <- (TP+TN) / (TP+TN+FP+FN)
+F1 = 2* (precision * sensitivity) / (precision + sensitivity)
+FPR = 1 - ( TN / (TN+FP))
 Performance_comp_table <- data.frame(Comp,TP,FP,FN,TN,sensitivity,specificity,precision,Accuracy, F1,FPR)
+Performance_comp_table[,6:11] <- round(Performance_comp_table[, 6:11], digits = 5)
 Performance_comp_table
 
 #=============================================================================================================
@@ -263,6 +259,31 @@ AIC(glm.fits12)
 
 #By conducting backward selection procedure based on p-value of each variable, we found the model without V26,V18,V3,V2,V17,V25,V11,V24,V12,V19,V15 delivers the best fit.
 
+#Selecting threshold for better prediction performance
+#Logistic Regression - Validation set approach: 
+log_mod <- glm(Class ~ . -V26-V18-V3-V2-V17-V25-V11-V24-V12-V19-V15, family = "binomial", data = train_val_df)
+scoreLogReg <- predict(log_mod, test_df_new, type='response')
+df_lr <- data.frame(true.class = actual, LR =scoreLogReg)
+ROC_func(df_lr, 1, 2, add_on = F) #Log Reg ROC
+
+score_lr5<- ifelse(scoreLogReg > 0.5, 1, 0) #Default threshold
+score_lr9<- ifelse(scoreLogReg > 0.9, 1, 0) #0.9 is selected based on elbow of ROC curve
+
+#Threshold = 0.5
+df5 <- data.frame(score_lr5)
+predicted_lr5 <- c(df5$score_lr5) #Predicted class of LogReg
+(CM_LReg5 <- table(actual,predicted_lr5)) #confusion matrix of LogReg
+Accuracy_LReg5 <- sum(diag(CM_LReg5))/sum(CM_LReg5)
+cat("The model accuracy of Logistic Regression is ", format(round(Accuracy_LReg5*100, 2), nsmall = 2), "%")  
+
+#Threshold = 0.9
+df9 <- data.frame(score_lr9)
+predicted_lr9 <- c(df9$score_lr9) #Predicted class of LogReg
+(CM_LReg9 <- table(actual,predicted_lr9)) #confusion matrix of LogReg
+Accuracy_LReg9 <- sum(diag(CM_LReg9))/sum(CM_LReg9)
+cat("The model accuracy of Logistic Regression is ", format(round(Accuracy_LReg9*100, 2), nsmall = 2), "%")  
+
+#We notice that accuracy improves with threshold = 0.9
 #-----------------------------------------------------------------------------------------------------------
 ##Selecting best K for KNN using K-fold cross validation
 
@@ -289,7 +310,7 @@ for(m in 1:K) #loop through multiple K value of different knn models
     trainingset <- subset(train_val_df, id %in% list[-i])
     validationset <- subset(train_val_df, id %in% c(i))
     
-    mymodel <- knn(train = trainingset[,-(30,31)], test = validationset[,-(30,31)], cl = trainingset$Class, k = K_value, use.all = TRUE, , prob=TRUE) #run a knn
+    mymodel <- knn(train = trainingset[,-c(30,31)], test = validationset[,-c(30,31)], cl = trainingset$Class, k = K_value, use.all = TRUE, prob=TRUE) #run a knn
     prediction <- rbind(prediction, data.frame(predicted=as.data.frame(mymodel), score=attr(mymodel, "prob"))) # append this iteration's predictions to the end of the prediction data frame
     testsetCopy <- rbind(testsetCopy, as.data.frame(validationset[,30])) # append this iteration's test set to the test set copy data frame
     
@@ -398,18 +419,23 @@ cat("/n The accuracy is ", best_accurary)
 
 #---------------------------------------------------------------------------------------------------------
 ##Defining hyperparameters for Random Forest using train_val dataset:
+X <- train_val_df %>% 
+  select(-Class)
+y <- train_val_df$Class
 
-X_train <- train_df[,-30]
-X_test <- val_df[,-30] #Validation predictors
-y_train <- train_df[,30]
-y_test <- val_df[,30] #Validation response
+set.seed(12)
+index <- createDataPartition(y, p=0.88, list=FALSE) #spliting train_val to train and validation sets
+X_train <- X[ index, ]
+X_test <- X[-index, ] #Validation predictors
+y_train <- y[index]
+y_test<-y[-index] #Validation response
 
 
 customRF <- list(type = "Classification", library = "randomForest", loop = NULL)
-customRF$parameters <- data.frame(parameter = c("maxnodes", "ntree"), class = rep("numeric", 2), label = c("maxnodes", "ntree"))
+customRF$parameters <- data.frame(parameter = c("nodesize","maxnodes", "ntree"), class = rep("numeric", 3), label = c("nodesize", "maxnodes", "ntree"))
 customRF$grid <- function(x, y, len = NULL, search = "grid") {}
 customRF$fit <- function(x, y, wts, param, lev, last, weights, classProbs, ...) {
-  randomForest(x, y, maxnodes = param$maxnodes, ntree=param$ntree, ...)
+  randomForest(x, y, nodesize = param$nodesize, maxnodes = param$maxnodes, ntree=param$ntree, ...)
 }
 customRF$predict <- function(modelFit, newdata, preProc = NULL, submodels = NULL)
   predict(modelFit, newdata)
@@ -419,16 +445,14 @@ customRF$sort <- function(x) x[order(x[,1]),]
 customRF$levels <- function(x) x$classes
 
 metric<-"accuracy"
-control <- trainControl(method="cv", number=5, search='grid')
+control <- trainControl(method="cv", number=10, search='grid')
 
 # Grid of parameters to select optimal combination:
-tunegrid <- expand.grid(.maxnodes=c(80,90,100,110,120), .ntree=c(600,800, 900, 1000, 1100))
+tunegrid <- expand.grid(.nodesize = c(1, 5, 10, 15, 20, 25), 
+                        .maxnodes=c(70,80,90,100,120), 
+                        .ntree=c(400, 500, 600, 800, 900))
 
 set.seed(100)
 rf_gridsearch <- train(x=X_train, y=y_train, method=customRF, metric=metric, tuneGrid=tunegrid, trControl=control)
 plot(rf_gridsearch)
 rf_gridsearch$bestTune 
-
-
-
-
