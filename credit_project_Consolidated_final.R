@@ -187,7 +187,7 @@ auc_rf <- ROC_func(df_all, 1, 5, add_on = T, color = "green") #RF
 
 legend("bottomright",legend=c("Logistic Regression, 0.996", "KNN, 0.892", "Decision Tree, 0.999","Random forest, 0.991"),
        title = "Model, AUC",lty=c(1,1,1,1), cex = 0.5, 
-       lwd=c(.125, 0.125, 0.125, 0.125),col=c("black", "blue", "red", "yellow"))
+       lwd=c(.125, 0.125, 0.125, 0.125),col=c("black", "blue", "red", "green"))
 #---------------------------------------------------------------------------------------------
 
 #Performance Comparision
@@ -298,7 +298,8 @@ best_accurary <- 0
 
 for(m in 1:K) #loop through multiple K value of different knn models
 {
-  K_value <- strtoi(switch(m,"3","5","10"))
+  #K_value <- strtoi(switch(m,"3","5","10"))
+  K_value <- strtoi(switch(m,"50","100","150"))
   prediction <- data.frame()
   testsetCopy <- data.frame()
   result <- data.frame()
@@ -340,7 +341,7 @@ for(m in 1:K) #loop through multiple K value of different knn models
     ROC_func(roc_result, 1, 2, add_on = T, color = 'green')
   }
 }
-legend("bottomright",legend=c("KNN Cross Validation ROC", "K=3", "K=5","K=10"),
+legend("bottomright",legend=c("KNN Cross Validation ROC", "K=50", "K=100","K=150"),
        lty=c(1,1,1,1), cex = 0.5,
        lwd=c(.125, 0.125, 0.125, 0.125),col=c("black", "red", "green"))
 
